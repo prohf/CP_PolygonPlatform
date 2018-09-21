@@ -1,5 +1,5 @@
 # CP_PolygonPlatform
---
+
 Computer-Aided Geometry Design.
 
 Reproduce a paper of an algorithm for boolean operations on  polygons.<br>

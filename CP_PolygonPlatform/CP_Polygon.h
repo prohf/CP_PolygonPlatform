@@ -1,4 +1,3 @@
-#pragma once
 #ifndef CP_POLYGON_H
 #define CP_POLYGON_H
 

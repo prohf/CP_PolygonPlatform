@@ -187,6 +187,7 @@
     <ClInclude Include="CP_PolygonPlatform.h" />
     <ClInclude Include="CP_PolygonPlatformDoc.h" />
     <ClInclude Include="CP_PolygonPlatformView.h" />
+    <ClInclude Include="CP_SweepLine.h" />
     <ClInclude Include="CP_Triangle.h" />
     <ClInclude Include="MainFrm.h" />
     <ClInclude Include="Resource.h" />
@@ -198,6 +199,7 @@
     <ClCompile Include="CP_PolygonPlatform.cpp" />
     <ClCompile Include="CP_PolygonPlatformDoc.cpp" />
     <ClCompile Include="CP_PolygonPlatformView.cpp" />
+    <ClCompile Include="CP_SweepLine.cpp" />
     <ClCompile Include="CP_Triangle.cpp" />
     <ClCompile Include="MainFrm.cpp" />
     <ClCompile Include="stdafx.cpp">

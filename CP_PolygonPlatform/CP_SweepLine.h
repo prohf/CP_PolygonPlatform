@@ -2,6 +2,7 @@
 #include "CP_Polygon.h"
 #include <queue>
 #include <set>
+const double TOLERANCE = 1e-6;
 
 enum PolygonType {
   SUBJECT,
@@ -13,7 +14,7 @@ public:
   SweepEvent() = default;
   SweepEvent(const CP_Point& point) : point(std::make_shared<CP_Point>(point)) {}
   ~SweepEvent() = default;
-  void setInformation(const SweepEvent& other);
+
 
 
 public:
@@ -45,10 +46,24 @@ struct status_comparator {
 typedef std::priority_queue<SweepEvent, std::vector<SweepEvent>, queue_comparator> EventQueue;
 typedef std::set<SweepEvent, status_comparator> StatusSet;
 
+// 浮点数比较运算
+inline bool Equal(double a, double b, double tolerance = TOLERANCE) noexcept { return b - a <= tolerance && a - b <= tolerance; }
+
+inline bool NotEqual(double a, double b, double tolerance = TOLERANCE) noexcept { return b - a > tolerance || a - b > tolerance; }
+
+inline bool Great(double a, double b, double tolerance = TOLERANCE) noexcept { return a > b + tolerance; }
+
+inline bool GreatEqual(double a, double b, double tolerance = TOLERANCE) noexcept { return a > b - tolerance; }
+
+inline bool Less(double a, double b, double tolerance = TOLERANCE) noexcept { return a + tolerance < b; }
+
+inline bool LessEqual(double a, double b, double tolerance = TOLERANCE) noexcept { return a < b + tolerance; }
+
 // 初始化SweepEvent优先队列
 extern EventQueue initializeQueue(const CP_Polygon& polygon);  
 // First Stage: 分割边
 extern void subdivision(EventQueue& event);  
+// set information
+extern void setInformation(SweepEvent& this_event, SweepEvent& other_event);
 // 检查是否存在线段相交
 extern void possibleIntersection(SweepEvent& a, SweepEvent& b);
-// 

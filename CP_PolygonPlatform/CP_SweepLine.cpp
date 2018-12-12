@@ -2,10 +2,6 @@
 #include "CP_SweepLine.h"
 #include <iterator>
 
-void SweepEvent::setInformation(const SweepEvent & other) {
-
-}
-
 EventQueue initializeQueue(const CP_Polygon & polygon) {
   EventQueue queue;
   // TODO: 完成初始化
@@ -44,6 +40,8 @@ EventQueue initializeQueue(const CP_Polygon & polygon) {
   return queue;
 }
 
+// 第一阶段算法：分割边
+// TODO: 实现setInformation 和 possibleIntersection
 void subdivision(EventQueue & event_queue) {
   StatusSet status_set;
   while (!event_queue.empty()) {
@@ -68,7 +66,31 @@ void subdivision(EventQueue & event_queue) {
   }
 }
 
-void possibleIntersection(SweepEvent & a, SweepEvent & b) {
+void setInformation(SweepEvent & this_event, SweepEvent & other_event) {
+
+}
+
+// to-left-test
+double toLeftTest(const CP_Point& a, const CP_Point& b, const CP_Point& p) {
+  return (a.m_x - b.m_x) * (a.m_y - p.m_y) - (a.m_y - b.m_y) * (a.m_x - p.m_x);
+}
+
+// 计算可能存在的线段相交
+// 采用下面这篇论文中提供的线段求交算法
+// Bennellabc J A. The geometry of nesting problems: A tutorial[J]. European Journal of Operational Research, 2008, 184(2):397-415.
+// D-function 为toLeftTest方法
+void possibleIntersection(SweepEvent & ab, SweepEvent & uv) {
+  // 取出SweepEvent中的点
+  CP_Point a = *ab.point;
+  CP_Point b = *ab.other_event->point;
+  CP_Point u = *uv.point;
+  CP_Point v = *uv.other_event->point;
+  // 计算D-function
+  double d_abu = toLeftTest(a, b, u);
+  double d_abv = toLeftTest(a, b, v);
+  double d_uva = toLeftTest(u, v, a);
+  double d_uvb = toLeftTest(u, v, b);
+  // 
 
 }
 

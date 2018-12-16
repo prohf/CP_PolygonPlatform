@@ -2,27 +2,25 @@
 #include "CP_Polygon.h"
 #include <queue>
 #include <set>
+// 定义容差
 const double TOLERANCE = 1e-6;
-
-enum PolygonType {
-  SUBJECT,
-  CLIPPING
-};
+// 定义向量类型CP_Vector
+typedef CP_Point CP_Vector;
 
 class SweepEvent {
 public: 
   SweepEvent() = default;
-  SweepEvent(const CP_Point& point) : point(std::make_shared<CP_Point>(point)) {}
+  SweepEvent(const CP_Point& point, const CP_Polygon& polygon) :
+    point(std::make_shared<CP_Point>(point)),
+    polygon(std::make_shared<CP_Polygon>(polygon)) {}
   ~SweepEvent() = default;
-
-
 
 public:
   // fields for first stage
   std::shared_ptr<CP_Point> point;  // point assoiated with this event 
   bool left;   // is the left endpoint of the edge
   std::shared_ptr<SweepEvent> other_event;  // other event of the edge
-  PolygonType pol;  // can be SUBJECT or CLIPPING
+  std::shared_ptr<CP_Polygon> polygon; // polygon this point belongs to
 
   // fields for second stage
   int pos;
@@ -62,8 +60,8 @@ inline bool LessEqual(double a, double b, double tolerance = TOLERANCE) noexcept
 // 初始化SweepEvent优先队列
 extern EventQueue initializeQueue(const CP_Polygon& polygon);  
 // First Stage: 分割边
-extern void subdivision(EventQueue& event);  
+extern void subdivision(EventQueue& event, CP_Polygon& result);  
 // set information
 extern void setInformation(SweepEvent& this_event, SweepEvent& other_event);
 // 检查是否存在线段相交
-extern void possibleIntersection(SweepEvent& a, SweepEvent& b);
+extern void possibleIntersection(SweepEvent& a, SweepEvent& b, EventQueue & queue, CP_Polygon & result);

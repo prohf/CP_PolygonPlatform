@@ -14,6 +14,7 @@ public:
     point(std::make_shared<CP_Point>(point)),
     polygon(std::make_shared<CP_Polygon>(polygon)) {}
   ~SweepEvent() = default;
+  void setLeftFlag();
 
 public:
   // fields for first stage
@@ -64,4 +65,4 @@ extern void subdivision(EventQueue& event, CP_Polygon& result);
 // set information
 extern void setInformation(SweepEvent& this_event, SweepEvent& other_event);
 // 检查是否存在线段相交
-extern void possibleIntersection(SweepEvent& a, SweepEvent& b, EventQueue & queue, CP_Polygon & result);
+extern int possibleIntersection(SweepEvent& a, SweepEvent& b, EventQueue & queue, CP_Polygon & result);

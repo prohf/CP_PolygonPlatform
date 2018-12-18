@@ -16,6 +16,7 @@ class CP_Point {
  public:
   CP_Point(void) : m_x(0.0), m_y(0.0) {}
   CP_Point(double x, double y) : m_x(x), m_y(y) {}
+  CP_Point(const CP_Point& point) : m_x(point.m_x), m_y(point.m_y) {}
 };  // 类CP_Point定义结束
 typedef vector<CP_Point> VT_PointArray;
 

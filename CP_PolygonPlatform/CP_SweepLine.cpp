@@ -81,6 +81,9 @@ void subdivision(EventQueue & event_queue, CP_Polygon & result) {
     }
     // if event is in result
     // add event to the result
+    if (&*event.polygon == &result) {
+      result.m_pointArray.push_back(*event.point);
+    }
   }
 }
 

@@ -26,6 +26,7 @@ enum PolygonType {
 
 class SweepEvent {
 public: 
+  SweepEvent() = default;
   SweepEvent(const CP_Point& point, PolygonType type) :
     point(std::make_shared<CP_Point>(point)),
     polygon_type(type) {}
@@ -51,12 +52,27 @@ public:
 
 struct queue_comparator {
   bool operator() (const SweepEvent& a, const SweepEvent& b) const {
-    //return a.point->m_x > b.point->m_x;
+    // 比较x坐标
     if (Great(a.point->m_x , b.point->m_x)) {
       return true;
     }
+    // x坐标相同，比较y坐标
     else if (Equal(a.point->m_x, b.point->m_x) && Great(a.point->m_y, b.point->m_y)) {
       return true;
+    }
+    // 两事件关联的点重合，比较其关联的点
+    else if (Equal(a.point->m_x, b.point->m_x) && Equal(a.point->m_y, b.point->m_y)) {
+      // 如果otherevent存在
+      CP_Point a_o = *a.other_event->point, b_o = *b.other_event->point;
+      if (Great(a_o.m_x, b_o.m_x)) {
+        return true;
+      }
+      else if (Equal(a_o.m_x, b_o.m_x) && Great(a_o.m_y, b_o.m_y)) {
+        return true;
+      }
+      else {
+        return false;
+      }
     }
     else {
       return false;
@@ -66,24 +82,29 @@ struct queue_comparator {
 
 struct status_comparator { 
   bool operator() (const SweepEvent& a, const SweepEvent& b) const {
-    if (Great(a.point->m_y, b.point->m_y)) {
+    // 比较y坐标
+    if (Less(a.point->m_y, b.point->m_y)) {
       return true;
     }
-    else if (Equal(a.point->m_y, b.point->m_y) && Great(a.point->m_x, b.point->m_x)) {
+    // y坐标相同，比较x坐标
+    else if (Equal(a.point->m_y, b.point->m_y) && Less(a.point->m_x, b.point->m_x)) {
       return true;
     }
     // 两个事件对应的点相同，比较其关联的点。
     else if (Equal(a.point->m_x, b.point->m_x) && Equal(a.point->m_y, b.point->m_y)) {
+      //if (a.other_event && b.other_event) {
       CP_Point a_o = *a.other_event->point, b_o = *b.other_event->point;
-      if (Great(a_o.m_y, b_o.m_y)) {
+      if (Less(a_o.m_y, b_o.m_y)) {
         return true;
       }
-      else if (Equal(a_o.m_y, b_o.m_y) && Great(a_o.m_x, b_o.m_x)) {
+      else if (Equal(a_o.m_y, b_o.m_y) && Less(a_o.m_x, b_o.m_x)) {
         return true;
       }
       else {
         return false;
       }
+      //}
+      //return false;
     }
     else {
       return false;
@@ -101,4 +122,4 @@ extern void subdivision(EventQueue& event, CP_Polygon& result);
 // set information
 extern void setInformation(SweepEvent& this_event, SweepEvent& other_event);
 // 检查是否存在线段相交
-extern int possibleIntersection(SweepEvent& a, SweepEvent& b, EventQueue & queue, CP_Polygon & result);
+extern int possibleIntersection(SweepEvent& a, SweepEvent& b, EventQueue & event_queue, StatusSet & status_set);

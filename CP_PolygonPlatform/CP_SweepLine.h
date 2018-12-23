@@ -41,6 +41,10 @@ public:
   //std::shared_ptr<CP_Polygon> polygon; // polygon this point belongs to
   PolygonType polygon_type;
 
+  //fields of informations
+  bool inOut;
+  bool inSide;
+
   // fields for second stage
   int pos;
   bool result_in_out;
@@ -53,21 +57,21 @@ public:
 struct queue_comparator {
   bool operator() (const SweepEvent& a, const SweepEvent& b) const {
     // 比较x坐标
-    if (Great(a.point->m_x , b.point->m_x)) {
+    if (Less(a.point->m_x , b.point->m_x)) {
       return true;
     }
     // x坐标相同，比较y坐标
-    else if (Equal(a.point->m_x, b.point->m_x) && Great(a.point->m_y, b.point->m_y)) {
+    else if (Equal(a.point->m_x, b.point->m_x) && Less(a.point->m_y, b.point->m_y)) {
       return true;
     }
     // 两事件关联的点重合，比较其关联的点
     else if (Equal(a.point->m_x, b.point->m_x) && Equal(a.point->m_y, b.point->m_y)) {
       // 如果otherevent存在
       CP_Point a_o = *a.other_event->point, b_o = *b.other_event->point;
-      if (Great(a_o.m_x, b_o.m_x)) {
+      if (Less(a_o.m_x, b_o.m_x)) {
         return true;
       }
-      else if (Equal(a_o.m_x, b_o.m_x) && Great(a_o.m_y, b_o.m_y)) {
+      else if (Equal(a_o.m_x, b_o.m_x) && Less(a_o.m_y, b_o.m_y)) {
         return true;
       }
       else {
@@ -112,7 +116,7 @@ struct status_comparator {
   }
 };
 
-typedef std::priority_queue<SweepEvent, std::vector<SweepEvent>, queue_comparator> EventQueue;
+typedef std::set<SweepEvent, queue_comparator> EventQueue;
 typedef std::set<SweepEvent, status_comparator> StatusSet;
 
 // 初始化SweepEvent优先队列

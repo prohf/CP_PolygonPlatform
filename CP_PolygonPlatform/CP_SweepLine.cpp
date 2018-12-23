@@ -44,13 +44,12 @@ void initializeQueue(const CP_Polygon & polygon, EventQueue & event_queue, Polyg
         event_s.other_event = std::make_shared<SweepEvent>(event_t);
         event_t.other_event = std::make_shared<SweepEvent>(event_s);
         event_s.other_event = std::make_shared<SweepEvent>(event_t);
-        event_t.other_event = std::make_shared<SweepEvent>(event_s);
         // 判断哪个是左边的点
         event_s.setLeftFlag();
         event_t.setLeftFlag();
         // 加入队列中
-        event_queue.push(event_s);
-        event_queue.push(event_t);
+        event_queue.insert(event_s);
+        event_queue.insert(event_t);
         ++point_id;
       }
     }
@@ -62,23 +61,25 @@ void initializeQueue(const CP_Polygon & polygon, EventQueue & event_queue, Polyg
 void subdivision(EventQueue & event_queue, CP_Polygon & result) {
   StatusSet status_set;
   while (!event_queue.empty()) {
-    auto sweep_event = event_queue.top();
-    event_queue.pop();
+    //event_queue.top()
+    auto sweep_event_it = event_queue.begin();
+    auto sweep_event = *sweep_event_it;
+    //event_queue.pop();
+    event_queue.erase(sweep_event_it);
     if (sweep_event.left) { // left endpoint
       auto position_it = status_set.insert(sweep_event).first;
       if (position_it != status_set.end()) {
         // 用拷贝的迭代器替代position_it
-        auto pos_it1 = position_it;
-        auto pos_it2 = position_it;
         auto position = *position_it;
         SweepEvent previous, next;
         bool prev_flag = false, next_flag = false;
         if (position_it != status_set.begin()) {
-          previous = *std::prev(pos_it1, 1);
+          previous = *std::prev(position_it);
           prev_flag = true;
+          std::next(position_it);
         }
-        if (position_it != std::prev(status_set.end(), 1)) {
-          next = *std::next(pos_it2, 1);
+        if (position_it != std::prev(status_set.end())) {
+          next = *std::next(position_it);
           next_flag = true;
         }
         if (prev_flag)
@@ -91,11 +92,10 @@ void subdivision(EventQueue & event_queue, CP_Polygon & result) {
       auto position_it = status_set.find(*sweep_event.other_event);
       if (position_it != status_set.end()) { // 点在status_set中
         // 用拷贝的迭代器替代position_it
-        auto pos_it1 = position_it;
-        auto pos_it2 = position_it;
-        if (position_it != status_set.begin() && position_it != std::prev(status_set.end(), 1)) {
-          auto previous = *std::prev(position_it, 1);
-          auto next = *std::next(position_it, 1);
+        if (position_it != status_set.begin() && position_it != std::prev(status_set.end())) {
+          auto previous = *std::prev(position_it);
+          std::next(position_it);
+          auto next = *std::next(position_it);
           possibleIntersection(previous, next, event_queue, status_set);
         }
         status_set.erase(position_it);
@@ -136,28 +136,49 @@ CP_Point intersectPoint(const CP_Point & a, const CP_Point & b, const CP_Point &
 
 // 将事件移出StatusSet 
 void removeFromStatusSet(SweepEvent & ab, SweepEvent & uv, StatusSet & status_set) {
-  if (ab.polygon_type != PolygonType::kPolygonResult && uv.polygon_type != PolygonType::kPolygonResult) {
-    auto ab_iter = status_set.find(ab);
-    auto uv_iter = status_set.find(uv);
-    if (ab_iter != status_set.end()) {
-      status_set.erase(ab_iter);
-    }
-    if (uv_iter != status_set.end()) {
-      status_set.erase(uv_iter);
-    }
+  auto ab_iter = status_set.find(ab);
+  if (ab_iter != status_set.end()) {
+    status_set.erase(ab_iter);
+  }
+  auto uv_iter = status_set.find(uv);
+  if (uv_iter != status_set.end()) {
+    status_set.erase(uv_iter);
+  }
+}
+
+void modifyEventQueue(SweepEvent & other, SweepEvent & intersect, EventQueue & event_queue, StatusSet & status_set) {
+  intersect.other_event = std::make_shared<SweepEvent>(other);
+  auto iter = event_queue.find(other);
+  if (iter != event_queue.end()) {
+    event_queue.erase(iter);
+    other.other_event = std::make_shared<SweepEvent>(intersect);
+    intersect.other_event = std::make_shared<SweepEvent>(other);
+    other.setLeftFlag();
+    event_queue.insert(other);
+    return;
+  }
+  else {
+    other.other_event = std::make_shared<SweepEvent>(intersect);
+    intersect.other_event = std::make_shared<SweepEvent>(other);
+    other.setLeftFlag();
+    status_set.insert(other);
+    return;
   }
 }
 
 // 两线段交与线段中，修改 EventQueue 和 StatusSet
-int intersectAtCrossPoint(SweepEvent & intersect, std::shared_ptr<SweepEvent> other, EventQueue & event_queue, StatusSet & status_set) {
-  intersect.other_event = other;
-  other->other_event = std::make_shared<SweepEvent>(intersect);
-  intersect.other_event = other;
+int intersectAtCrossPoint(SweepEvent & intersect, SweepEvent & other, EventQueue & event_queue, StatusSet & status_set) {
+  //intersect.other_event = std::make_shared<SweepEvent>(other);
+  //other.other_event = std::make_shared<SweepEvent>(intersect);
+  modifyEventQueue(other, intersect, event_queue, status_set);
+
   intersect.setLeftFlag();
-  event_queue.push(intersect);
-  if (intersect.left) {
-    status_set.insert(intersect);
-  }
+
+  // event_queue.push(intersect)
+  event_queue.insert(intersect);
+  //if (other.left) {
+  //  status_set.insert(other);
+  //}
   return 1;
 }
 
@@ -167,22 +188,29 @@ int intersectAtEndpoint(SweepEvent & intersect, SweepEvent& endpoint1, SweepEven
   if (intersect.polygon_type != PolygonType::kPolygonResult) { // 必须不是相交的交点
     CP_Point point = *intersect.point;
     SweepEvent intersect1(point, PolygonType::kPolygonResult), intersect2(point, PolygonType::kPolygonResult);
-    intersect1.other_event = std::make_shared<SweepEvent>(endpoint1);
-    endpoint1.other_event = std::make_shared<SweepEvent>(intersect1);
-    intersect1.other_event = std::make_shared<SweepEvent>(endpoint1);
-    intersect2.other_event = std::make_shared<SweepEvent>(endpoint2);
-    endpoint2.other_event = std::make_shared<SweepEvent>(intersect2);
-    intersect2.other_event = std::make_shared<SweepEvent>(endpoint2);
+
+    //intersect1.other_event = std::make_shared<SweepEvent>(endpoint1);
+    //endpoint1.other_event = std::make_shared<SweepEvent>(intersect1);
+    modifyEventQueue(endpoint1, intersect1, event_queue, status_set);
+
+    //intersect2.other_event = std::make_shared<SweepEvent>(endpoint2);
+    //endpoint2.other_event = std::make_shared<SweepEvent>(intersect2);
+    modifyEventQueue(endpoint2, intersect2, event_queue, status_set);
+
     intersect1.setLeftFlag();
     intersect2.setLeftFlag();
-    event_queue.push(intersect1);
-    event_queue.push(intersect2);
-    if (intersect1.left) {
-      status_set.insert(intersect1);
-    }
-    if (intersect2.left) {
-      status_set.insert(intersect2);
-    }
+    //endpoint1.setLeftFlag();
+    //endpoint2.setLeftFlag();
+    // event_queue.push(intersect1)
+    event_queue.insert(intersect1);
+    // event_queue.push(intersect2)
+    event_queue.insert(intersect2);
+    //if (endpoint1.left) {
+    //  status_set.insert(endpoint1);
+    //}
+    //if (endpoint2.left) {
+    //  status_set.insert(endpoint2);
+    //}
     return 1;
   }
   return 0;
@@ -193,13 +221,13 @@ int intersectAtEndpoint(SweepEvent & intersect, SweepEvent& endpoint1, SweepEven
 // Bennellabc J A. The geometry of nesting problems: A tutorial[J]. European Journal of Operational Research, 2008, 184(2):397-415.
 // D-function 为toLeftTest方法
 int possibleIntersection(SweepEvent & ab, SweepEvent & uv, EventQueue & event_queue, StatusSet & status_set) {
-  auto ba = ab.other_event; // 对应b
-  auto vu = uv.other_event; // 对应v
+  auto& ba = *ab.other_event; // 对应b
+  auto& vu = *uv.other_event; // 对应v
   // 取出SweepEvent中的点
   CP_Point a = *ab.point;
-  CP_Point b = *ba->point;
+  CP_Point b = *ba.point;
   CP_Point u = *uv.point;
-  CP_Point v = *vu->point;
+  CP_Point v = *vu.point;
   // 计算D-function
   double d_abu = toLeftTest(a, b, u);
   double d_abv = toLeftTest(a, b, v);
@@ -218,13 +246,13 @@ int possibleIntersection(SweepEvent & ab, SweepEvent & uv, EventQueue & event_qu
     // 修改SweepEvent 和 Status_set,将其插入队列和状态树中(插入四个事件）
     // i<->a
     SweepEvent event_i_a(i, PolygonType::kPolygonResult);
-    intersectAtCrossPoint(event_i_a, std::make_shared<SweepEvent>(ab), event_queue, status_set);
+    intersectAtCrossPoint(event_i_a, ab, event_queue, status_set);
     // i<->b
     SweepEvent event_i_b(i,PolygonType::kPolygonResult);
     intersectAtCrossPoint(event_i_b, ba, event_queue, status_set);
     // i<->u
     SweepEvent event_i_u(i, PolygonType::kPolygonResult);
-    intersectAtCrossPoint(event_i_u, std::make_shared<SweepEvent>(uv), event_queue, status_set);
+    intersectAtCrossPoint(event_i_u, uv, event_queue, status_set);
     // i<->v
     SweepEvent event_i_v(i, PolygonType::kPolygonResult);
     intersectAtCrossPoint(event_i_v, vu, event_queue, status_set);
@@ -232,24 +260,24 @@ int possibleIntersection(SweepEvent & ab, SweepEvent & uv, EventQueue & event_qu
   }
   // TODO：一条线段的端点在另一条线段上
   // u 在 ab 上
-  if (Equal(d_abu, 0.0) && NotEqual(d_abv, 0.0) && NotEqual(d_uva, 0.0) && NotEqual(d_uvb, 0.0) && NotEqual(d_uva, d_uvb)) {
+  if (Equal(d_abu, 0.0) && NotEqual(d_abv, 0.0) && NotEqual(d_uva, 0.0) && NotEqual(d_uvb, 0.0) && Less(d_uva * d_uvb, 0.0)) {
     removeFromStatusSet(ab, uv, status_set);
-    return intersectAtEndpoint(uv, ab, *ba, event_queue, status_set);
+    return intersectAtEndpoint(uv, ab, ba, event_queue, status_set);
   }
   // v 在 ab 上
-  if (NotEqual(d_abu, 0.0) && Equal(d_abv, 0.0) && NotEqual(d_uva, 0, 0) && NotEqual(d_uvb, 0.0) && NotEqual(d_uva, d_uvb)) {
+  if (NotEqual(d_abu, 0.0) && Equal(d_abv, 0.0) && NotEqual(d_uva, 0, 0) && NotEqual(d_uvb, 0.0) && Less(d_uva * d_uvb, 0.0)) {
     removeFromStatusSet(ab, uv, status_set);
-    return intersectAtEndpoint(*vu, ab, *ba, event_queue, status_set);
+    return intersectAtEndpoint(vu, ab, ba, event_queue, status_set);
   }
   // a 在 uv 上
-  if (NotEqual(d_abu, 0.0) && NotEqual(d_abv, 0.0) && Equal(d_uva, 0.0) && NotEqual(d_uvb, 0.0) && NotEqual(d_abu, d_abv)) {
+  if (NotEqual(d_abu, 0.0) && NotEqual(d_abv, 0.0) && Equal(d_uva, 0.0) && NotEqual(d_uvb, 0.0) && Less(d_abu * d_abv, 0.0)) {
     removeFromStatusSet(ab, uv, status_set);
-    return intersectAtEndpoint(ab, uv, *vu, event_queue, status_set);
+    return intersectAtEndpoint(ab, uv, vu, event_queue, status_set);
   }
   // b 在 uv 上
-  if (NotEqual(d_abu, 0.0) && NotEqual(d_abv, 0.0) && NotEqual(d_uva, 0.0) && Equal(d_uvb, 0.0) && NotEqual(d_abu, d_abv)) {
+  if (NotEqual(d_abu, 0.0) && NotEqual(d_abv, 0.0) && NotEqual(d_uva, 0.0) && Equal(d_uvb, 0.0) && Less(d_abu * d_abv, 0.0)) {
     removeFromStatusSet(ab, uv, status_set);
-    return intersectAtEndpoint(*ba, uv, *vu, event_queue, status_set);
+    return intersectAtEndpoint(ba, uv, vu, event_queue, status_set);
   }
   // TODO: 两线段重叠
   // 两条线段相交于端点

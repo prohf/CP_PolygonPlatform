@@ -2,6 +2,7 @@
 #include "CP_Polygon.h"
 #include <queue>
 #include <set>
+#include <list>
 // 定义容差
 const double TOLERANCE = 1e-6;
 // 浮点数比较运算
@@ -16,8 +17,18 @@ inline bool GreatEqual(double a, double b, double tolerance = TOLERANCE) noexcep
 inline bool Less(double a, double b, double tolerance = TOLERANCE) noexcept { return a + tolerance < b; }
 
 inline bool LessEqual(double a, double b, double tolerance = TOLERANCE) noexcept { return a < b + tolerance; }
+
+inline bool operator==(const CP_Point& lhs, const CP_Point& rhs) { return Equal(lhs.m_x, rhs.m_x) && Equal(lhs.m_y, rhs.m_y); }
 // 定义向量类型CP_Vector
 typedef CP_Point CP_Vector;
+
+enum OperationType {
+  kUnion, 
+  kIntersection,
+  kA_B,
+  kB_A,
+  kXor
+};
 enum PolygonType {
   kPolygonA,
   kPolygonB,
@@ -32,6 +43,7 @@ public:
     polygon_type(type) {}
   ~SweepEvent() = default;
   void setLeftFlag();
+  bool insideOtherPolygon() const { return inside; }
 
 public:
   // fields for first stage
@@ -43,7 +55,7 @@ public:
 
   //fields of informations
   bool inOut;
-  bool inSide;
+  bool inside;
 
   // fields for second stage
   int pos;
@@ -67,15 +79,33 @@ struct queue_comparator {
     // 两事件关联的点重合，比较其关联的点
     else if (Equal(a.point->m_x, b.point->m_x) && Equal(a.point->m_y, b.point->m_y)) {
       // 如果otherevent存在
-      CP_Point a_o = *a.other_event->point, b_o = *b.other_event->point;
-      if (Less(a_o.m_x, b_o.m_x)) {
+      //CP_Point a_o = *a.other_event->point, b_o = *b.other_event->point;
+      //if (Less(a_o.m_y, b_o.m_y)) {
+      //  return true;
+      //}
+      //else if (Equal(a_o.m_y, b_o.m_y) && Less(a_o.m_x, b_o.m_x)) {
+      //  return true;
+      //}
+      //else {
+      //  return false;
+      //}
+      if (a.left == false && b.left == true) {
         return true;
       }
-      else if (Equal(a_o.m_x, b_o.m_x) && Less(a_o.m_y, b_o.m_y)) {
-        return true;
+      else if (a.left == true && b.left == false) {
+        return false;
       }
       else {
-        return false;
+        CP_Point a_o = *a.other_event->point, b_o = *b.other_event->point;
+        if (Less(a_o.m_y, b_o.m_y)) {
+          return true;
+        }
+        else if (Equal(a_o.m_y, b_o.m_y) && Less(a_o.m_x, b_o.m_x)) {
+          return true;
+        }
+        else {
+          return false;
+        }
       }
     }
     else {
@@ -107,8 +137,6 @@ struct status_comparator {
       else {
         return false;
       }
-      //}
-      //return false;
     }
     else {
       return false;
@@ -122,8 +150,57 @@ typedef std::set<SweepEvent, status_comparator> StatusSet;
 // 初始化SweepEvent优先队列
 extern void initializeQueue(const CP_Polygon& polygon, EventQueue & event_queue, PolygonType type);  
 // First Stage: 分割边
-extern void subdivision(EventQueue& event, CP_Polygon& result);  
-// set information
-extern void setInformation(SweepEvent& this_event, SweepEvent& other_event);
+extern void booleanOperation(EventQueue& event, CP_Polygon& result, OperationType type);
+// First Stage: 分割边
+extern void subdivision(EventQueue& event, CP_Polygon& result);
+//// set information
+//extern void setInformation(SweepEvent & pos, SweepEvent & prev);
 // 检查是否存在线段相交
 extern int possibleIntersection(SweepEvent& a, SweepEvent& b, EventQueue & event_queue, StatusSet & status_set);
+
+class Segment {
+public:
+  /** Default constructor */
+  Segment() {}
+  ~Segment() {}
+  Segment(const SweepEvent& e) {
+    source = *e.point;
+    target = *e.other_event->point;
+  }
+public:
+  CP_Point source, target;
+};
+
+class PointChain {
+public:
+  typedef list<CP_Point>::iterator point_iter;
+  PointChain() : point_list(), is_closed(false) {}
+  std::list<CP_Point> point_list;
+  bool is_closed;
+
+public:
+  void init(const Segment& s);
+  bool LinkSegment(const Segment& s);
+  bool LinkPointChain(PointChain& chain);
+  point_iter begin() { return point_list.begin(); }
+  point_iter end() { return point_list.end(); }
+  void clear() { point_list.clear(); }
+  unsigned int size() const { return point_list.size(); }
+
+};
+
+class Connector {
+public:
+  typedef std::list<PointChain>::iterator iterator;
+  Connector() : openPolygons(), closedPolygons() {}
+  ~Connector() {}
+  void add(const Segment& s);
+  iterator begin() { return closedPolygons.begin(); }
+  iterator end() { return closedPolygons.end(); }
+  void clear() { closedPolygons.clear(); openPolygons.clear(); }
+  unsigned int size() const { return closedPolygons.size(); }
+  void toPolygon(CP_Polygon& polygon);
+private:
+  list<PointChain> openPolygons;
+  list<PointChain> closedPolygons;
+};

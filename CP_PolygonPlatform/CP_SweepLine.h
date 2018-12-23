@@ -19,6 +19,8 @@ inline bool Less(double a, double b, double tolerance = TOLERANCE) noexcept { re
 inline bool LessEqual(double a, double b, double tolerance = TOLERANCE) noexcept { return a < b + tolerance; }
 
 inline bool operator==(const CP_Point& lhs, const CP_Point& rhs) { return Equal(lhs.m_x, rhs.m_x) && Equal(lhs.m_y, rhs.m_y); }
+inline bool operator!=(const CP_Point& lhs, const CP_Point& rhs) { return !(lhs == rhs); }
+
 // 定义向量类型CP_Vector
 typedef CP_Point CP_Vector;
 
@@ -58,59 +60,77 @@ public:
   bool inside;
 
   // fields for second stage
-  int pos;
-  bool result_in_out;
-  int contour_id;
-  int parent_id; 
-  bool processed;
-  int depth;
+  //int pos;
+  //bool result_in_out;
+  //int contour_id;
+  //int parent_id; 
+  //bool processed;
+  //int depth;
 };
 
 struct queue_comparator {
+  //bool operator() (const SweepEvent& a, const SweepEvent& b) const {
+  //  // 比较x坐标
+  //  if (Less(a.point->m_x , b.point->m_x)) {
+  //    return true;
+  //  }
+  //  // x坐标相同，比较y坐标
+  //  else if (Equal(a.point->m_x, b.point->m_x) && Less(a.point->m_y, b.point->m_y)) {
+  //    return true;
+  //  }
+  //  // 两事件关联的点重合，比较其关联的点
+  //  else if (Equal(a.point->m_x, b.point->m_x) && Equal(a.point->m_y, b.point->m_y)) {
+  //    // 如果otherevent存在
+  //    //CP_Point a_o = *a.other_event->point, b_o = *b.other_event->point;
+  //    //if (Less(a_o.m_y, b_o.m_y)) {
+  //    //  return true;
+  //    //}
+  //    //else if (Equal(a_o.m_y, b_o.m_y) && Less(a_o.m_x, b_o.m_x)) {
+  //    //  return true;
+  //    //}
+  //    //else {
+  //    //  return false;
+  //    //}
+  //    if (a.left == false && b.left == true) {
+  //      return true;
+  //    }
+  //    else if (a.left == true && b.left == false) {
+  //      return false;
+  //    }
+  //    else {
+  //      CP_Point a_o = *a.other_event->point, b_o = *b.other_event->point;
+  //      if (Less(a_o.m_y, b_o.m_y)) {
+  //        return true;
+  //      }
+  //      else if (Equal(a_o.m_y, b_o.m_y) && Less(a_o.m_x, b_o.m_x)) {
+  //        return true;
+  //      }
+  //      else {
+  //        return false;
+  //      }
+  //    }
+  //  }
+  //  else {
+  //    return false;
+  //  }
+  //}
   bool operator() (const SweepEvent& a, const SweepEvent& b) const {
-    // 比较x坐标
-    if (Less(a.point->m_x , b.point->m_x)) {
+    if (Less(a.point->m_x, b.point->m_x))
       return true;
-    }
-    // x坐标相同，比较y坐标
-    else if (Equal(a.point->m_x, b.point->m_x) && Less(a.point->m_y, b.point->m_y)) {
-      return true;
-    }
-    // 两事件关联的点重合，比较其关联的点
-    else if (Equal(a.point->m_x, b.point->m_x) && Equal(a.point->m_y, b.point->m_y)) {
-      // 如果otherevent存在
-      //CP_Point a_o = *a.other_event->point, b_o = *b.other_event->point;
-      //if (Less(a_o.m_y, b_o.m_y)) {
-      //  return true;
-      //}
-      //else if (Equal(a_o.m_y, b_o.m_y) && Less(a_o.m_x, b_o.m_x)) {
-      //  return true;
-      //}
-      //else {
-      //  return false;
-      //}
-      if (a.left == false && b.left == true) {
-        return true;
-      }
-      else if (a.left == true && b.left == false) {
-        return false;
-      }
-      else {
-        CP_Point a_o = *a.other_event->point, b_o = *b.other_event->point;
-        if (Less(a_o.m_y, b_o.m_y)) {
-          return true;
-        }
-        else if (Equal(a_o.m_y, b_o.m_y) && Less(a_o.m_x, b_o.m_x)) {
-          return true;
-        }
-        else {
-          return false;
-        }
-      }
-    }
-    else {
+    if (Great(a.point->m_x, b.point->m_x))
       return false;
-    }
+    if (*a.point != *b.point)
+      return Less(a.point->m_y, b.point->m_y);
+    if (a.left != b.left)
+      return !a.left;
+    // other_event中较低的那个
+    CP_Point a_o = *a.other_event->point, b_o = *b.other_event->point;
+    if (Less(a_o.m_y, b_o.m_y))
+      return true;
+    if (Great(a_o.m_y, b_o.m_y))
+      return false;
+    if (a_o != b_o)
+      return Less(a_o.m_x, b_o.m_x);
   }
 };
 
@@ -126,14 +146,13 @@ struct status_comparator {
     }
     // 两个事件对应的点相同，比较其关联的点。
     else if (Equal(a.point->m_x, b.point->m_x) && Equal(a.point->m_y, b.point->m_y)) {
-      //if (a.other_event && b.other_event) {
       CP_Point a_o = *a.other_event->point, b_o = *b.other_event->point;
       if (Less(a_o.m_y, b_o.m_y)) {
         return true;
       }
-      else if (Equal(a_o.m_y, b_o.m_y) && Less(a_o.m_x, b_o.m_x)) {
-        return true;
-      }
+      //else if (Equal(a_o.m_y, b_o.m_y) && Less(a_o.m_x, b_o.m_x)) {
+      //  return true;
+      //}
       else {
         return false;
       }

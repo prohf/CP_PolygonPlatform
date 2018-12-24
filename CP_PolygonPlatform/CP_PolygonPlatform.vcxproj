@@ -183,6 +183,7 @@
     </ResourceCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="CP_Connector.h" />
     <ClInclude Include="CP_Polygon.h" />
     <ClInclude Include="CP_PolygonPlatform.h" />
     <ClInclude Include="CP_PolygonPlatformDoc.h" />
@@ -195,6 +196,7 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="CP_Connector.cpp" />
     <ClCompile Include="CP_Polygon.cpp" />
     <ClCompile Include="CP_PolygonPlatform.cpp" />
     <ClCompile Include="CP_PolygonPlatformDoc.cpp" />

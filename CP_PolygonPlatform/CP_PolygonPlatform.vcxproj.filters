@@ -45,6 +45,9 @@
     <ClInclude Include="CP_SweepLine.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="CP_Connector.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CP_PolygonPlatform.cpp">
@@ -70,6 +73,9 @@
     </ClCompile>
     <ClCompile Include="CP_SweepLine.cpp">
       <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CP_Connector.cpp">
+      <Filter>头文件</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

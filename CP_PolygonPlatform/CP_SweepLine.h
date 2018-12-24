@@ -24,13 +24,23 @@ inline bool operator!=(const CP_Point& lhs, const CP_Point& rhs) { return !(lhs 
 // 定义向量类型CP_Vector
 typedef CP_Point CP_Vector;
 class SweepEvent;
+class Segment {
+public:
+  /** Default constructor */
+  Segment() {}
+  Segment(const CP_Point& s, const CP_Point& t) : source(s), target(t) {}
+  ~Segment() {}
+public:
+  CP_Point source, target;
+};
 
 enum OperationType {
   kUnion, 
   kIntersection,
   kA_B,
   kB_A,
-  kXor
+  kXor,
+  kSubdivision
 };
 enum PolygonType {
   kPolygonA,
@@ -38,12 +48,12 @@ enum PolygonType {
   kPolygonResult
 };
 
-class queue_comparator : public binary_function<SweepEvent, SweepEvent, bool> {
+class queue_comparator : public binary_function<SweepEvent*, SweepEvent*, bool> {
 public:
   bool operator() (const SweepEvent* a, const SweepEvent* b) const;
 };
 
-class status_comparator : public binary_function<SweepEvent, SweepEvent, bool> {
+class status_comparator : public binary_function<SweepEvent*, SweepEvent*, bool> {
 public:
   bool operator() (const SweepEvent* a, const SweepEvent* b) const;
 };
@@ -56,7 +66,7 @@ public:
   SweepEvent() = default;
   SweepEvent(const CP_Point& point, SweepEvent* other, PolygonType type) : point(point), other_event(other), polygon_type(type) {}
   void setLeftFlag();
-  bool insideOtherPolygon() const { return inside; }
+  Segment segment() { return Segment(point, other_event->point); }
   inline bool below(const CP_Point& p) const;
   inline bool above(const CP_Point& p) const;
 
@@ -73,20 +83,6 @@ public:
   bool inside;
 };
 
-class Segment {
-public:
-  /** Default constructor */
-  Segment() {}
-  Segment(const CP_Point& s, const CP_Point& t) : source(s), target(t) {}
-  ~Segment() {}
-  Segment(const SweepEvent& e) {
-    source = e.point;
-    target = e.other_event->point;
-  }
-public:
-  CP_Point source, target;
-};
-
 class CP_SweepLine {
 public:
   CP_SweepLine() : event_queue(), event_holder() {}
@@ -95,8 +91,6 @@ public:
 
   void booleanOperation(CP_Polygon& result, OperationType type);
 
-  void subdivision(CP_Polygon& result);
-
 private:
   EventQueue event_queue;
   deque<SweepEvent> event_holder;
@@ -104,8 +98,6 @@ private:
   void processSegment(const Segment& s, PolygonType pl);
 
   int possibleIntersection(SweepEvent *e1, SweepEvent *e2);
-
-  int possibleIntersectionForDivision(SweepEvent *e1, SweepEvent *e2);
 
   void divideSegment(SweepEvent *e, const CP_Point& p, PolygonType type);
 

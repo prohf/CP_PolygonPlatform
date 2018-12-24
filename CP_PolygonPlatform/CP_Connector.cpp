@@ -4,6 +4,7 @@
 void PointChain::init(const Segment & s) {
   point_list.push_back(s.source);
   point_list.push_back(s.target);
+  is_closed = false;
 }
 
 bool PointChain::LinkSegment(const Segment& s) {

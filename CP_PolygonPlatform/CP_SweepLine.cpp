@@ -23,12 +23,8 @@ CP_Point intersectPoint(const CP_Point & a, const CP_Point & b, const CP_Point &
   return CP_Point(a.m_x + s * p.m_x, a.m_y + s * p.m_y); // 交点为i
 }
 
-inline double signedArea(const CP_Point& p0, const CP_Point& p1, const CP_Point& p2) {
-  return (p0.m_x - p2.m_x)*(p1.m_y - p2.m_y) - (p1.m_x - p2.m_x) * (p0.m_y - p2.m_y);
-}
-
 inline bool SweepEvent::below(const CP_Point & p) const { 
-  return left ? signedArea(point, other_event->point, p) > 0 : signedArea(other_event->point, point, p) > 0;
+  return left ? toLeftTest(point, other_event->point, p) < 0 : toLeftTest(other_event->point, point, p) < 0;
 }
 
 inline bool SweepEvent::above(const CP_Point & p) const { return !below(p); }
@@ -154,8 +150,8 @@ int CP_SweepLine::possibleIntersection(SweepEvent* ab, SweepEvent * uv) {
   if (NotEqual(d_abu, 0.0) && NotEqual(d_abv, 0.0) && NotEqual(d_uva, 0.0) && NotEqual(d_uvb, 0.0)
     && Less(d_abu * d_abv, 0.0) && Less(d_uva * d_uvb, 0.0)) {
     CP_Point i = intersectPoint(a, b, u, v);
-    divideSegment(ab, i, PolygonType::kPolygonResult);
-    divideSegment(uv, i, PolygonType::kPolygonResult);
+    divideSegment(ab, i, ab->polygon_type);
+    divideSegment(uv, i, uv->polygon_type);
   }
   // 一条线段的端点在另一条线段上
   // TODO: 两线段重叠

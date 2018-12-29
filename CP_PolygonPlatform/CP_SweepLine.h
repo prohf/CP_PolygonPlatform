@@ -91,6 +91,8 @@ public:
 
   void booleanOperation(CP_Polygon& result, OperationType type);
 
+  void clear();
+
 private:
   EventQueue event_queue;
   deque<SweepEvent> event_holder;

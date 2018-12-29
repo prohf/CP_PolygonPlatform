@@ -250,3 +250,8 @@ void CP_SweepLine::booleanOperation(CP_Polygon & result, OperationType op_type) 
     connector.toPolygon(result);
   }
 }
+
+void CP_SweepLine::clear() {
+  event_holder.clear();
+  event_queue = {};
+}

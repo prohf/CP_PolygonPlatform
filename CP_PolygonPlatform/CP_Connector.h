@@ -2,6 +2,10 @@
 #include "CP_SweepLine.h"
 #include "CP_Polygon.h"
 #include <list>
+/*
+PointChain & Connector
+这两个类的实现参考了作者的源码
+*/
 
 class PointChain {
 public:

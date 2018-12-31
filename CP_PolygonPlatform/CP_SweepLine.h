@@ -86,12 +86,22 @@ public:
 class CP_SweepLine {
 public:
   CP_SweepLine() : event_queue(), event_holder() {}
-
+  /*
+  初始化SweepLine
+  @polygon: 输入多边形
+  @type: 多边形类型
+  */
   void initializeQueue(const CP_Polygon& polygon, PolygonType type);
-
+  /*
+  执行布尔运算
+  @result: 布尔运算结果
+  @type: 布尔运算类型
+  */
   void booleanOperation(CP_Polygon& result, OperationType type);
-
+  // 清空
   void clear();
+  // 判断多边形是否合法
+  bool check(const CP_Polygon& polygon);
 
 private:
   EventQueue event_queue;
@@ -104,4 +114,6 @@ private:
   void divideSegment(SweepEvent *e, const CP_Point& p, PolygonType type);
 
   SweepEvent *storeSweepEvent(const SweepEvent& e) { event_holder.push_back(e); return &event_holder.back(); }
+
+  int segmentIntersect(const Segment& ab, const Segment& uv);
 };

@@ -39,13 +39,18 @@ enum OperationType {
   kIntersection,
   kA_B,
   kB_A,
-  kXor,
-  kSubdivision
+  kXOR
 };
 enum PolygonType {
   kPolygonA,
   kPolygonB,
-  kPolygonResult
+  kPolygonCheck
+};
+enum EdgeType { // 边的类型（是否重叠）
+  kNormal, 
+  kNon_contributing, 
+  kSame_trasition, 
+  kDifferent_trasition
 };
 
 class queue_comparator : public binary_function<SweepEvent*, SweepEvent*, bool> {
@@ -64,7 +69,8 @@ typedef std::set<SweepEvent*, status_comparator> StatusSet;
 class SweepEvent {
 public: 
   SweepEvent() = default;
-  SweepEvent(const CP_Point& point, SweepEvent* other, PolygonType type) : point(point), other_event(other), polygon_type(type) {}
+  SweepEvent(const CP_Point& point, SweepEvent* other, PolygonType ptype, EdgeType etype = kNormal) 
+    : point(point), other_event(other), polygon_type(ptype), edge_type(etype) {}
   void setLeftFlag();
   Segment segment() { return Segment(point, other_event->point); }
   inline bool below(const CP_Point& p) const;
@@ -77,7 +83,7 @@ public:
   SweepEvent* other_event;  // other event of the edge
   PolygonType polygon_type; // polygon type
   StatusSet::iterator poss; // the position in StatusSet
-
+  EdgeType edge_type;
   //fields of informations
   bool inOut;
   bool inside;
@@ -111,7 +117,7 @@ private:
 
   int possibleIntersection(SweepEvent *e1, SweepEvent *e2);
 
-  void divideSegment(SweepEvent *e, const CP_Point& p, PolygonType type);
+  void divideSegment(SweepEvent *e, const CP_Point& p);
 
   SweepEvent *storeSweepEvent(const SweepEvent& e) { event_holder.push_back(e); return &event_holder.back(); }
 

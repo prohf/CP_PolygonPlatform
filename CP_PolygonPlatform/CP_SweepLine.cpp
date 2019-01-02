@@ -153,7 +153,7 @@ int CP_SweepLine::possibleIntersection(SweepEvent* ab, SweepEvent * uv) {
   }
   // TODO: 两线段重叠
   // 这段代码的实现参考了作者源码
-  if (Equal(d_abu, 0.0) && Equal(d_abv, 0.0)) {
+  if (Equal(d_abu, 0.0) && Equal(d_abv, 0.0) && Equal(d_uva, 0.0) && Equal(d_uvb, 0.0)) {
     if (ab->point == vu->point || ba->point == uv->point)
       return 0;
     std::vector<SweepEvent*> sortedEvents;
@@ -237,8 +237,7 @@ void CP_SweepLine::booleanOperation(CP_Polygon & result, OperationType op_type) 
     event_queue.pop();
     if (sweep_event->left) { // left point
       // 将sweep_event 插入队列
-      auto in = status_set.insert(sweep_event);
-      sweep_event->poss = position = in.first;
+      sweep_event->poss = position = status_set.insert(sweep_event).first;
       next = previous = position;
       (previous != status_set.begin()) ? --previous : previous = status_set.end();
       // setInformation
@@ -387,7 +386,7 @@ void CP_SweepLine::initializeQueue(const CP_Polygon & polygon) {
       auto loop = region.m_loopArray[l];
       // 判断是否是外环
       bool isOut = loop.m_loopIDinRegion == 0;
-      // 找到环的顶端点
+      // 找到环的最低点
       double min_y = 1e18, min_x = 0;
       for (auto id : loop.m_pointIDArray) {
         if (polygon.m_pointArray[id].m_y < min_y) {
@@ -399,7 +398,7 @@ void CP_SweepLine::initializeQueue(const CP_Polygon & polygon) {
       // 初始化事件队列
       loop_first_id = loop.m_pointIDArray[0];
       loop_size = loop.m_pointIDArray.size();
-      int d = isOut ? 1 : -1;
+      int d = loop_first_id == point_id ? 1 : -1;
       for (int i = 0; i < loop_size; ++i) {
         auto source = polygon.m_pointArray[loop_first_id + d * (i % loop_size)];
         auto target = polygon.m_pointArray[loop_first_id + d * ((i + 1) % loop_size)];
@@ -425,8 +424,7 @@ bool CP_SweepLine::check(const CP_Polygon & polygon) {
     event_queue.pop();
     if (sweep_event->left) { // left point
       // 将sweep_event 插入队列
-      auto in = status_set.insert(sweep_event);
-      sweep_event->poss = position = in.first;
+      sweep_event->poss = position = status_set.insert(sweep_event).first;
       next = previous = position;
       (previous != status_set.begin()) ? --previous : previous = status_set.end();
       if ((++next) != status_set.end()) {
@@ -449,60 +447,41 @@ bool CP_SweepLine::check(const CP_Polygon & polygon) {
   if (self_intersect > 0)
     return false;
   clear();
+  sweep_event = nullptr;
+  status_set.clear();
+  position = previous = next = status_set.end();
   // end step 1 复杂度O((N+k)logN)
 
   // step 2: 判断环的位置合法性
   // 找到环最上点，发出一条向上的射线与多边形相交
   // 外环的交点必须为偶数，内环的交点必须为奇数
-  // TO_OPTIMIZE: 将判断位置合法性的算法合并到扫描线算法中，将时间复杂度降到O(NlogN)
-  for (auto region : polygon.m_regionArray) {
-    for (auto loop : region.m_loopArray) {
-      // 判断是否是外环
-      bool isOut = loop.m_loopIDinRegion == 0;
-      // 找到环的顶端点
-      double max_y = -1e18, max_x = 0;
-      for (auto id : loop.m_pointIDArray) {
-        if (polygon.m_pointArray[id].m_y > max_y) {
-          max_y = polygon.m_pointArray[id].m_y;
-          max_x = polygon.m_pointArray[id].m_x;
-        }
+  // 采用扫描线算法实现
+  initializeQueue(polygon);
+  while (!event_queue.empty()) {
+    sweep_event = event_queue.top();
+    event_queue.pop();
+    if (sweep_event->left) // 将左顶点事件插入set
+      sweep_event->poss = position = status_set.insert(sweep_event).first;
+    else // 取出右顶点对应的事件
+      position = sweep_event->other_event->poss;
+    if (sweep_event->is_bottom) {  // 如果是最低点
+      // 计算最低点射线与边的交点数
+      int intersect = 0;
+      Segment ray(sweep_event->point, CP_Point(sweep_event->point.m_x, -1e18));
+      for (++position; position != status_set.end(); ++position) {
+        Segment tmp((*position)->point, (*position)->other_event->point);
+        if (tmp.source != ray.source && tmp.target != ray.source)
+          intersect += segmentIntersect(tmp, ray);
       }
-      CP_Point top_point(max_x, max_y);
-      Segment ray(top_point, CP_Point(max_x, 1e18));
-      // 判断射线与多边形的交点数
-      int intersect_num = 0;
-      int loop_first_id = 0;
-      int loop_size = 0;
-      int point_id = 0;
-      // 遍历多边形的所有区域
-      for (auto region_2 : polygon.m_regionArray) {
-        // 遍历区域中的所有环
-        for (int l = 0; l < region_2.m_loopArray.size(); ++l) {
-          auto loop_2 = region_2.m_loopArray[l];
-          loop_first_id = loop_2.m_pointIDArray[0];
-          loop_size = loop_2.m_pointIDArray.size();
-          for (int i = 0; i < loop_size; ++i) {
-            auto source = polygon.m_pointArray[loop_first_id + i % loop_size];
-            auto target = polygon.m_pointArray[loop_first_id + (i + 1) % loop_size];
-            // 将该线段对应的 SweepEvent 加入到EventQueue 中。
-            Segment s(source, target);
-            // 计算交点
-            if (source != top_point || target != top_point) {
-              intersect_num += segmentIntersect(s, ray);
-            }
-            ++point_id;
-          }
-        }
-      } // end 
-      int a = 1;
-      if (isOut && intersect_num % 2 == 1) // 如果是外环且交点为奇数
+      if (sweep_event->is_external && intersect % 2 == 1)
         return false;
-      if (!isOut && intersect_num % 2 == 0) // 如果是内环且交点为偶数
+      if (!sweep_event->is_external && intersect % 2 == 0)
         return false;
-      // end 交点计算
-    } // end loop
-  } // end region
-  // end step 2 复杂度O(n^2)
+    }
+    if (!sweep_event->left)
+      status_set.erase(sweep_event->other_event->poss);
+  }
+  // end step 2 复杂度O(NlogN)
   return true;
 }
 

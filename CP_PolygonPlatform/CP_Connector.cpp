@@ -90,8 +90,7 @@ void Connector::add(const Segment& s) {
 }
 
 void Connector::toPolygon(CP_Polygon & polygon) {
-  CP_Polygon tmp_polygon;
-  // step 1 生成 tmp_polygon 
+  // step 1 生成结果多边形的区域
   int point_id = 0, region_id = 0;
   for (iterator it = begin(); it != end(); ++it) {
     CP_Region region;
@@ -110,6 +109,6 @@ void Connector::toPolygon(CP_Polygon & polygon) {
     polygon.m_regionArray.push_back(region);
     ++region_id;
   }
-  // step 2 将 tmp_polygon 转换成合法的result
+  // end step 1 O(n)
 }
 

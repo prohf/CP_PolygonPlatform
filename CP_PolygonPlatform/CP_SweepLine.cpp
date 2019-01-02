@@ -89,6 +89,7 @@ void SweepEvent::setLeftFlag() {
 
 /***********************************************************************
 实现 CP_SweepLine 方法
+布尔运算部分
 ***********************************************************************/
 void CP_SweepLine::initializeQueue(const CP_Polygon & polygon, PolygonType type) {
   // 完成初始化
@@ -226,22 +227,6 @@ void CP_SweepLine::divideSegment(SweepEvent* ab, const CP_Point& p) {
   event_queue.push(re);
 }
 
-int CP_SweepLine::segmentIntersect(const Segment & ab, const Segment & uv) {
-  auto a = ab.source;
-  auto b = ab.target;
-  auto u = uv.source;
-  auto v = uv.target;
-  double d_abu = toLeftTest(a, b, u);
-  double d_abv = toLeftTest(a, b, v);
-  double d_uva = toLeftTest(u, v, a);
-  double d_uvb = toLeftTest(u, v, b);
-  if (Great(d_uva*d_uvb, 0.0) || Great(d_abu*d_abv, 0.0)) // 没有交点
-    return 0;
-  if (Equal(d_abu, 0.0) && Equal(d_abv, 0.0) && Equal(d_uva, 0.0) && Equal(d_uvb, 0.0)) // 共线
-    return 2;
-  return 1; // 其他相交情况
-}
-
 void CP_SweepLine::booleanOperation(CP_Polygon & result, OperationType op_type) {
   Connector connector;
   StatusSet status_set;
@@ -302,55 +287,130 @@ void CP_SweepLine::booleanOperation(CP_Polygon & result, OperationType op_type) 
       next = previous = position = sweep_event->other_event->poss;
       // 处理结果(添加重叠边处理）
       switch (sweep_event->edge_type) {
-        case kNormal: 
-          switch (op_type) {
-          case kUnion:
-            if (!sweep_event->other_event->inside)
-              connector.add(sweep_event->segment());
-            break;
-          case kIntersection:
-            if (sweep_event->other_event->inside)
-              connector.add(sweep_event->segment());
-            break;
-          case kA_B:
-            if ((sweep_event->polygon_type == kPolygonA && !sweep_event->other_event->inside) ||
-              (sweep_event->polygon_type == kPolygonB && sweep_event->other_event->inside))
-              connector.add(sweep_event->segment());
-            break;
-          case kB_A:
-            if ((sweep_event->polygon_type == kPolygonB && !sweep_event->other_event->inside) ||
-              (sweep_event->polygon_type == kPolygonA && sweep_event->other_event->inside))
-              connector.add(sweep_event->segment());
-            break;
-          case kXOR:
-            connector.add(sweep_event->segment());
-            break;
-          default:
-            break;
-          }
-          break;
-        case kSame_trasition:
-          if (op_type == kUnion || op_type == kIntersection)
+      case kNormal:
+        switch (op_type) {
+        case kUnion:
+          if (!sweep_event->other_event->inside)
             connector.add(sweep_event->segment());
           break;
-        case kDifferent_trasition:
-          if (op_type == kA_B || op_type == kB_A)
+        case kIntersection:
+          if (sweep_event->other_event->inside)
             connector.add(sweep_event->segment());
           break;
-      } 
+        case kA_B:
+          if ((sweep_event->polygon_type == kPolygonA && !sweep_event->other_event->inside) ||
+            (sweep_event->polygon_type == kPolygonB && sweep_event->other_event->inside))
+            connector.add(sweep_event->segment());
+          break;
+        case kB_A:
+          if ((sweep_event->polygon_type == kPolygonB && !sweep_event->other_event->inside) ||
+            (sweep_event->polygon_type == kPolygonA && sweep_event->other_event->inside))
+            connector.add(sweep_event->segment());
+          break;
+        case kXOR:
+          connector.add(sweep_event->segment());
+          break;
+        default:
+          break;
+        }
+        break;
+      case kSame_trasition:
+        if (op_type == kUnion || op_type == kIntersection)
+          connector.add(sweep_event->segment());
+        break;
+      case kDifferent_trasition:
+        if (op_type == kA_B || op_type == kB_A)
+          connector.add(sweep_event->segment());
+        break;
+      }
       ++next;
       (previous != status_set.begin()) ? --previous : previous = status_set.end();
       status_set.erase(position);
       if (previous != status_set.end() && next != status_set.end())
         possibleIntersection(*previous, *next);
-    } 
-  } 
+    }
+  }
+  clear();
   connector.toPolygon(result);
+  processLoop(result);
 }
 
 void CP_SweepLine::clear() {
   event_holder.clear();
   event_queue = {};
+}
+
+/***************************************************
+合法性检验与多边形结果生成
+***************************************************/
+
+void CP_SweepLine::processSegment(const Segment & s, int loop_id, bool isOut, const CP_Point & bottom) {
+  SweepEvent *event_s = storeSweepEvent(SweepEvent(s.source, nullptr, loop_id, isOut));
+  SweepEvent *event_t = storeSweepEvent(SweepEvent(s.target, event_s, loop_id, isOut));
+  event_s->other_event = event_t;
+  event_s->setLeftFlag();
+  if (bottom == s.source)
+    event_s->is_bottom = true;
+  if (bottom == s.target)
+    event_t->is_bottom = true;
+  event_queue.push(event_s);
+  event_queue.push(event_t);
+}
+
+int CP_SweepLine::segmentIntersect(const Segment & ab, const Segment & uv) {
+  auto a = ab.source;
+  auto b = ab.target;
+  auto u = uv.source;
+  auto v = uv.target;
+  double d_abu = toLeftTest(a, b, u);
+  double d_abv = toLeftTest(a, b, v);
+  double d_uva = toLeftTest(u, v, a);
+  double d_uvb = toLeftTest(u, v, b);
+  if (Great(d_uva*d_uvb, 0.0) || Great(d_abu*d_abv, 0.0)) // 没有交点
+    return 0;
+  if (Equal(d_abu, 0.0) && Equal(d_abv, 0.0) && Equal(d_uva, 0.0) && Equal(d_uvb, 0.0)) // 共线
+    return 2;
+  return 1; // 其他相交情况
+}
+
+void CP_SweepLine::initializeQueue(const CP_Polygon & polygon) {
+  // 完成初始化
+  int loop_first_id = 0;
+  int loop_size = 0;
+  int point_id = 0;
+  // 环id
+  int loop_id = 0;
+  // 遍历多边形的所有区域
+  for (auto region : polygon.m_regionArray) {
+    // 遍历区域中的所有环
+    for (int l = 0; l < region.m_loopArray.size(); ++l) {
+      auto loop = region.m_loopArray[l];
+      // 判断是否是外环
+      bool isOut = loop.m_loopIDinRegion == 0;
+      // 找到环的顶端点
+      double min_y = 1e18, min_x = 0;
+      for (auto id : loop.m_pointIDArray) {
+        if (polygon.m_pointArray[id].m_y < min_y) {
+          min_y = polygon.m_pointArray[id].m_y;
+          min_x = polygon.m_pointArray[id].m_x;
+        }
+      }
+      CP_Point bottom_point(min_x, min_y);
+      // 初始化事件队列
+      loop_first_id = loop.m_pointIDArray[0];
+      loop_size = loop.m_pointIDArray.size();
+      int d = isOut ? 1 : -1;
+      for (int i = 0; i < loop_size; ++i) {
+        auto source = polygon.m_pointArray[loop_first_id + d * (i % loop_size)];
+        auto target = polygon.m_pointArray[loop_first_id + d * ((i + 1) % loop_size)];
+        // 将该线段对应的 SweepEvent 加入到EventQueue 中。
+        Segment s(source, target);
+        processSegment(s, loop_id, isOut, bottom_point);
+        ++point_id;
+      }
+      ++loop_id;
+    }
+  }
 }
 
 bool CP_SweepLine::check(const CP_Polygon & polygon) {
@@ -441,7 +501,42 @@ bool CP_SweepLine::check(const CP_Polygon & polygon) {
         return false;
       // end 交点计算
     } // end loop
-  } // er
+  } // end region
   // end step 2 复杂度O(n^2)
   return true;
+}
+
+void CP_SweepLine::processLoop(CP_Polygon & result) {
+  initializeQueue(result);
+  StatusSet status_set;
+  StatusSet::iterator position, previous, next;
+  SweepEvent* sweep_event;
+  std::vector<bool> is_processed(result.m_regionArray.size(), false);
+  while (!event_queue.empty()) {
+    sweep_event = event_queue.top();
+    event_queue.pop();
+    if (sweep_event->left) // 将左顶点事件插入set
+      sweep_event->poss = position = status_set.insert(sweep_event).first;
+    else // 取出右顶点对应的事件
+      position = sweep_event->other_event->poss;
+    int loopid = sweep_event->loop_id;
+    if (sweep_event->is_bottom && !is_processed[loopid]) {
+      // 计算最低点射线与边的交点数
+      int intersect = 0;
+      Segment ray(sweep_event->point, CP_Point(sweep_event->point.m_x, -1e18));
+      for (++position; position != status_set.end(); ++position) {
+        Segment tmp((*position)->point, (*position)->other_event->point);
+        if (tmp.source != ray.source && tmp.target != ray.source)
+          intersect += segmentIntersect(tmp, ray);
+      }
+      if (intersect % 2 == 1) { 
+        CP_Loop & loop = result.m_regionArray[loopid].m_loopArray[0];
+        loop.m_loopIDinRegion = 1;
+      }
+      is_processed[loopid] = true;
+    }
+    if (!sweep_event->left)
+      status_set.erase(sweep_event->other_event->poss);
+  }
+  clear();
 }

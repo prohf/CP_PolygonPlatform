@@ -69,15 +69,19 @@ typedef std::set<SweepEvent*, status_comparator> StatusSet;
 class SweepEvent {
 public: 
   SweepEvent() = default;
+  // 布尔运算构造函数
   SweepEvent(const CP_Point& point, SweepEvent* other, PolygonType ptype, EdgeType etype = kNormal) 
     : point(point), other_event(other), polygon_type(ptype), edge_type(etype) {}
+  // 内外环处理构造函数
+  SweepEvent(const CP_Point& point, SweepEvent* other, int loopid, bool isOut, bool isBottom = false)
+    : point(point), other_event(other), loop_id(loopid), is_external(isOut), is_bottom(isBottom) {}
   void setLeftFlag();
   Segment segment() { return Segment(point, other_event->point); }
   inline bool below(const CP_Point& p) const;
   inline bool above(const CP_Point& p) const;
 
 public:
-  // fields for first stage
+  // fields for boolean operation
   CP_Point point;  // point assoiated with this event 
   bool left;   // is the left endpoint of the edge
   SweepEvent* other_event;  // other event of the edge
@@ -87,10 +91,16 @@ public:
   //fields of informations
   bool inOut;
   bool inside;
+
+  // fields for in/out loop check
+  int loop_id;  // loop id for generation
+  bool is_bottom;  // is this point top point of this loop
+  bool is_external;  // is this loop an external loop
 };
 
 class CP_SweepLine {
 public:
+  // 布尔运算、求交方法
   CP_SweepLine() : event_queue(), event_holder() {}
   /*
   初始化SweepLine
@@ -106,20 +116,29 @@ public:
   void booleanOperation(CP_Polygon& result, OperationType type);
   // 清空
   void clear();
+  // 合法性检验、多边形生成方法
+  // 初始化队列
+  void initializeQueue(const CP_Polygon& polygon);
   // 判断多边形是否合法
   bool check(const CP_Polygon& polygon);
+  // 判断结果多边形内外环
+  void processLoop(CP_Polygon& result);
 
 private:
   EventQueue event_queue;
   deque<SweepEvent> event_holder;
-
+  // 布尔运算所需的方法
+  // 初始化处理线段
   void processSegment(const Segment& s, PolygonType pl);
-
+  // 可能存在的交点
   int possibleIntersection(SweepEvent *e1, SweepEvent *e2);
-
+  // 分割边
   void divideSegment(SweepEvent *e, const CP_Point& p);
-
+  // 将事件插入队列中
   SweepEvent *storeSweepEvent(const SweepEvent& e) { event_holder.push_back(e); return &event_holder.back(); }
-
+  // 合法性检验和生成结果多边形所需的方法
+  // 合法性检验线段处理方法
+  void processSegment(const Segment& s, int loop_id, bool isOut, const CP_Point& top);
+  // 线段相交
   int segmentIntersect(const Segment& ab, const Segment& uv);
 };

@@ -39,6 +39,9 @@ bool queue_comparator::operator()(const SweepEvent* a, const SweepEvent* b) cons
     return Great(a->point.m_y, b->point.m_y);
   if (a->left != b->left)
     return a->left;
+  // 处理重叠边的情况
+  if (a->point == b->point && a->other_event->point == b->other_event->point)
+    return a->polygon_type < b->polygon_type;
   // other_event中较低的那个
   return a->above(b->other_event->point);
 }
@@ -59,8 +62,8 @@ bool status_comparator::operator()(const SweepEvent* a, const SweepEvent* b) con
     return a->below(b->point);
   }
   else {
-    if (a->point == b->point)
-      return a < b;
+    if (a->point == b->point) // 处理重叠边的情况
+      return a->polygon_type < b->polygon_type;
     queue_comparator comp;
     return comp(a, b);
   }
@@ -153,7 +156,7 @@ int CP_SweepLine::possibleIntersection(SweepEvent* ab, SweepEvent * uv) {
   }
   // TODO: 两线段重叠
   // 这段代码的实现参考了作者源码
-  if (Equal(d_abu, 0.0) && Equal(d_abv, 0.0) && Equal(d_uva, 0.0) && Equal(d_uvb, 0.0)) {
+  if (Equal(d_abu, 0.0) && Equal(d_abv, 0.0) /*&& Equal(d_uva, 0.0) && Equal(d_uvb, 0.0)*/) {
     if (ab->point == vu->point || ba->point == uv->point)
       return 0;
     std::vector<SweepEvent*> sortedEvents;
